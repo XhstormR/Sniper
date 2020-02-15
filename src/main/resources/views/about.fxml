@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.ButtonType?>
+<?import javafx.scene.control.DialogPane?>
+<?import javafx.scene.control.Hyperlink?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.VBox?>
+
+<DialogPane prefHeight="300.0" prefWidth="480.0" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1">
+   <content>
+      <VBox alignment="CENTER">
+         <children>
+            <Label text="Sniper v0.1" />
+            <Label />
+            <Label text="2020/02/15" />
+            <Label text="Written by: XhstormR" />
+            <Label />
+            <Hyperlink text="https://github.com/XhstormR">
+               <graphic>
+                  <Label text="Home:" />
+               </graphic>
+            </Hyperlink>
+         </children>
+      </VBox>
+   </content>
+   <buttonTypes>
+      <ButtonType fx:constant="OK" />
+   </buttonTypes>
+</DialogPane>
