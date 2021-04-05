@@ -1,11 +1,12 @@
 package com.xhstormr.app
 
-import java.io.File
-import java.net.URL
-import java.text.NumberFormat
-import java.time.LocalTime
-import java.time.format.DateTimeFormatter
-import java.util.ResourceBundle
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.request.header
+import io.ktor.client.request.request
+import io.ktor.client.statement.HttpResponse
+import io.ktor.http.HttpMethod
+import io.ktor.http.contentLength
 import javafx.application.Platform
 import javafx.fxml.FXML
 import javafx.fxml.FXMLLoader
@@ -26,7 +27,6 @@ import javafx.scene.input.Clipboard
 import javafx.scene.input.DataFormat
 import javafx.stage.FileChooser
 import javafx.util.Duration
-import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -34,63 +34,88 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.javafx.awaitPulse
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.reactive.awaitSingle
-import org.springframework.http.HttpMethod
-import org.springframework.http.ResponseEntity
-import org.springframework.web.reactive.function.client.WebClient
-import org.springframework.web.util.UriComponentsBuilder
-import reactor.core.publisher.Mono
+import java.io.File
+import java.net.URL
+import java.text.NumberFormat
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.util.ResourceBundle
+import kotlin.coroutines.CoroutineContext
 
 class MainController : Initializable, CoroutineScope {
 
     @FXML
     private lateinit var tableView: TableView<ReadOnlyHttpResponse>
+
     @FXML
     private lateinit var tableViewCodeColumn: TableColumn<ReadOnlyHttpResponse, Int>
+
     @FXML
     private lateinit var tableViewLengthColumn: TableColumn<ReadOnlyHttpResponse, Long>
+
     @FXML
     private lateinit var tableViewPayloadColumn: TableColumn<ReadOnlyHttpResponse, String>
+
     @FXML
     private lateinit var tableViewCopyMenu: MenuItem
+
     @FXML
     private lateinit var urlField: TextField
+
     @FXML
     private lateinit var urlFieldTip: Tooltip
+
     @FXML
     private lateinit var headersField: TextArea
+
     @FXML
     private lateinit var payloadField: TextField
+
     @FXML
     private lateinit var payloadButton: Button
+
     @FXML
-    private lateinit var methodBox: ChoiceBox<HttpMethod>
+    private lateinit var methodBox: ChoiceBox<String>
+
     @FXML
     private lateinit var methodBoxTip: Tooltip
+
     @FXML
     private lateinit var startButton: Button
+
     @FXML
     private lateinit var stopButton: Button
+
     @FXML
     private lateinit var progressBar: ProgressBar
+
     @FXML
     private lateinit var loadingBar: ProgressIndicator
+
     @FXML
     private lateinit var exitMenu: MenuItem
+
     @FXML
     private lateinit var aboutMenu: MenuItem
+
     @FXML
     private lateinit var time: Label
+
     @FXML
     private lateinit var status: Label
+
     @FXML
     private lateinit var workDone: Label
+
     @FXML
     private lateinit var totalWork: Label
+
     @FXML
     private lateinit var speed: Label
 
-    private val webClient = WebClient.create()
+    private val webClient = HttpClient(CIO) {
+        expectSuccess = false
+    }
 
     private val timeFormatter = DateTimeFormatter.ISO_LOCAL_TIME
 
@@ -112,8 +137,8 @@ class MainController : Initializable, CoroutineScope {
 
     override fun initialize(location: URL, resources: ResourceBundle?) {
         with(methodBox) {
-            items.addAll(HttpMethod.values())
-            selectionModel.select(HttpMethod.HEAD)
+            items.addAll(HttpMethod.DefaultMethods.map { it.value })
+            selectionModel.select(HttpMethod.Head.value)
         }
 
         urlFieldTip.showDelay = Duration.ZERO
@@ -169,33 +194,29 @@ class MainController : Initializable, CoroutineScope {
         startButton.isDisable = true
         loadingBar.progress = ProgressIndicator.INDETERMINATE_PROGRESS
 
-        val uriComponentsBuilder = UriComponentsBuilder.fromHttpUrl(url)
+        val httpMethod = HttpMethod.parse(methodBox.selectionModel.selectedItem)
+
+        val headers: Map<String, String> = headersField.text
+            .lines()
+            .filter { it.isNotBlank() }
+            .map { it.split(':', limit = 2) }
+            .groupingBy { it[0] }
+            .aggregate { _, _, element, _ -> element[1] }
 
         val lines = payload.readLines()
 
         val channel = produce(Dispatchers.IO, Channel.Factory.BUFFERED) {
             for (line in lines) {
-                val uri = uriComponentsBuilder.buildAndExpand(line).encode().toUri()
-                val httpMethod = methodBox.selectionModel.selectedItem
-                val headers: Map<String, String> = headersField.text
-                    .lines()
-                    .filter { it.isNotBlank() }
-                    .map { it.split(':', limit = 2) }
-                    .groupingBy { it[0] }
-                    .aggregate { _, _, element, _ -> element[1] }
-                val responseEntity = webClient.method(httpMethod)
-                    .uri(uri)
-                    .headers { it.setAll(headers) }
-                    .retrieve()
-                    .onStatus({ true }, { Mono.empty() })
-                    .toBodilessEntity()
-                    .onErrorReturn(ResponseEntity.badRequest().build())
-                    .awaitSingle()
+                val uri = url.replace("{1}", line)
+                val responseEntity = webClient.request<HttpResponse>(uri) {
+                    method = httpMethod
+                    headers.forEach { (k, v) -> header(k, v) }
+                }
                 val httpResponse = ReadOnlyHttpResponse(
                     line,
-                    responseEntity.statusCodeValue,
-                    responseEntity.headers.contentLength,
-                    uri.toString()
+                    responseEntity.status.value,
+                    responseEntity.contentLength() ?: 0,
+                    uri
                 )
                 send(httpResponse)
             }

@@ -5,18 +5,18 @@ version = "1.0-SNAPSHOT"
 plugins {
     idea
     application
-    kotlin("jvm") version "1.4.10"
-    id("org.jlleitschuh.gradle.ktlint") version "9.4.0"
+    kotlin("jvm") version "1.4.32"
+    id("org.jlleitschuh.gradle.ktlint") version "10.0.0"
     id("org.openjfx.javafxplugin") version "0.0.9"
 }
 
 javafx {
-    version = "15"
+    version = "16"
     modules("javafx.controls", "javafx.fxml")
 }
 
 application {
-    mainClassName = "com.xhstormr.app.MainKt"
+    mainClass.set("com.xhstormr.app.MainKt")
 }
 
 repositories {
@@ -27,10 +27,8 @@ dependencies {
     implementation(kotlin("stdlib-jdk8"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-javafx:+")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor:+")
 
-    implementation("org.springframework:spring-webflux:+")
-    implementation("io.projectreactor.netty:reactor-netty:+")
+    implementation("io.ktor:ktor-client-cio:+")
 }
 
 tasks {
@@ -44,7 +42,7 @@ tasks {
     }
 
     withType<Jar> {
-        manifest.attributes["Main-Class"] = application.mainClassName
+        manifest.attributes["Main-Class"] = application.mainClass
         duplicatesStrategy = DuplicatesStrategy.EXCLUDE
         from(configurations.runtimeClasspath.get().map { zipTree(it) })
         exclude("**/*.kotlin_module")
@@ -53,7 +51,7 @@ tasks {
     }
 
     withType<Wrapper> {
-        gradleVersion = "6.6"
+        gradleVersion = "6.8.2"
         distributionType = Wrapper.DistributionType.ALL
     }
 
